@@ -1,14 +1,18 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::FromRef, middleware, routing::{get, post, IntoMakeService}, serve::Serve, Router
+    extract::FromRef,
+    middleware,
+    routing::{get, post, IntoMakeService},
+    serve::Serve,
+    Router,
 };
 use axum_flash::Key;
 use axum_session::{SessionConfig, SessionLayer, SessionRedisPool, SessionStore};
+use redis_pool::RedisPool;
 use secrecy::{ExposeSecret, Secret};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use tokio::net::TcpListener;
-use redis_pool::RedisPool;
 
 use crate::{
     authentication::reject_anonymous_users,

@@ -1,7 +1,9 @@
 use std::ops::Deref;
 
 use axum::{
-    body::Body, middleware::Next, response::{IntoResponse, Redirect, Response}
+    body::Body,
+    middleware::Next,
+    response::{IntoResponse, Redirect, Response},
 };
 use axum_session::SessionRedisPool;
 use http::Request;

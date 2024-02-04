@@ -1,4 +1,7 @@
-use axum::{body::to_bytes, response::{IntoResponse, Response}};
+use axum::{
+    body::to_bytes,
+    response::{IntoResponse, Response},
+};
 use http::{HeaderMap, HeaderName, HeaderValue, StatusCode};
 use sqlx::{postgres::PgHasArrayType, PgPool, Postgres, Transaction};
 use uuid::Uuid;
@@ -58,7 +61,9 @@ pub async fn save_response(
     http_response: Response,
 ) -> Result<Response, anyhow::Error> {
     let (response_head, body) = http_response.into_parts();
-    let body = to_bytes(body, usize::MAX).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let body = to_bytes(body, usize::MAX)
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
     let status_code = response_head.status.as_u16() as i16;
     let headers = {
         let mut h = Vec::with_capacity(response_head.headers.len());
