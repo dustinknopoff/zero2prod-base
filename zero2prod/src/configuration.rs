@@ -6,7 +6,7 @@ use sqlx::{
     ConnectOptions,
 };
 
-use crate::{domain::SubscriberEmail, email_client::EmailClient};
+use crate::{domain::Email, email_client::EmailClient};
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     // Grab the execution directory
@@ -121,8 +121,8 @@ impl EmailClientSettings {
         )
     }
 
-    pub fn sender(&self) -> Result<SubscriberEmail, String> {
-        SubscriberEmail::parse(self.sender_email.clone())
+    pub fn sender(&self) -> anyhow::Result<Email> {
+        Email::parse(self.sender_email.clone())
     }
 
     pub fn timeout(&self) -> std::time::Duration {

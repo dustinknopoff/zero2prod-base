@@ -1,4 +1,5 @@
 use argon2::{password_hash::SaltString, Algorithm, Argon2, Params, PasswordHasher, Version};
+use fake::{faker::{internet::en::{FreeEmail, SafeEmail}, phone_number::en::PhoneNumber}, Dummy, Fake, Faker};
 use once_cell::sync::Lazy;
 use reqwest::Response;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
@@ -7,8 +8,6 @@ use wiremock::MockServer;
 use zero2prod::{
     configuration::{get_configuration, DatabaseSettings},
     email_client::EmailClient,
-    idempotency_remover_worker::remove_old_idempotency_entries,
-    issue_delivery_worker::{try_execute_task, ExecutionOutcome},
     startup::{get_db_pool, Application},
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -102,22 +101,25 @@ pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
 
 pub struct TestUser {
     pub user_id: Uuid,
-    pub username: String,
+    pub email: String,
     pub password: String,
+    pub phone_number: String,
 }
 
 impl TestUser {
     pub fn generate() -> Self {
         Self {
             user_id: Uuid::new_v4(),
-            username: Uuid::new_v4().to_string(),
+            email: SafeEmail().fake(),
             password: Uuid::new_v4().to_string(),
+            phone_number: PhoneNumber().fake(),
         }
     }
 
+    #[allow(dead_code)]
     pub async fn login(&self, app: &TestApp) -> Response {
         app.post_login(&serde_json::json!({
-            "username": &self.username,
+            "email": &self.email,
             "password": &self.password,
         }))
         .await
@@ -135,16 +137,32 @@ impl TestUser {
 
         sqlx::query!(
             r#"
-            INSERT INTO users (user_id, username, password_hash)
-            VALUES ($1, $2, $3)
+            INSERT INTO users (user_id, user_name, preferred_name, password_hash)
+            VALUES ($1, $2, $3, $4)
             "#,
             self.user_id,
-            self.username,
+            "test_user",
+            "user_1",
             password_hash,
         )
         .execute(pool)
         .await
         .expect("Failed to store test user");
+
+        sqlx::query!(
+            r#"
+            INSERT INTO user_private (user_id, email, phone_number)
+            VALUES ($1, $2, $3)
+            "#,
+            self.user_id,
+            self.email,
+            self.phone_number,
+        )
+        .execute(pool)
+        .await
+        .expect("Failed to store test user");
+
+
     }
 }
 
@@ -159,35 +177,6 @@ pub struct TestApp {
 }
 
 impl TestApp {
-    pub async fn dispatch_all_pending_emails(&self) {
-        loop {
-            if let ExecutionOutcome::EmptyQueue =
-                try_execute_task(&self.db_pool, &self.email_client)
-                    .await
-                    .unwrap()
-            {
-                break;
-            }
-        }
-    }
-
-    pub async fn clean_up_idempotency(&self) {
-        remove_old_idempotency_entries(&self.db_pool).await.unwrap();
-    }
-
-    /// Send a get request to the admin dashboard endpoint.
-    pub async fn get_admin_dashboard(&self) -> reqwest::Response {
-        self.api_client
-            .get(&format!("{}/admin/dashboard", &self.address))
-            .send()
-            .await
-            .expect("Failed to execute request")
-    }
-
-    /// Return the html from the admin dashboard
-    pub async fn get_admin_dashboard_html(&self) -> String {
-        self.get_admin_dashboard().await.text().await.unwrap()
-    }
 
     /// Send a get request to the change admin password endpoint
     pub async fn get_change_password(&self) -> reqwest::Response {
@@ -203,61 +192,6 @@ impl TestApp {
         self.get_change_password().await.text().await.unwrap()
     }
 
-    /// Get the confirmation links from the mock email.
-    pub fn get_confirmation_links(&self, email_request: &wiremock::Request) -> ConfirmationLinks {
-        let body: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
-
-        // Extract the link from one of the request fields
-        let get_link = |s: &str| {
-            let links: Vec<_> = linkify::LinkFinder::new()
-                .links(s)
-                .filter(|l| *l.kind() == linkify::LinkKind::Url)
-                .collect();
-            assert_eq!(links.len(), 1);
-
-            let raw_link = links[0].as_str().to_owned();
-
-            let mut confirmation_link = reqwest::Url::parse(&raw_link).unwrap();
-
-            // Make sure we don't call random APIs on the web
-            assert_eq!(confirmation_link.host_str().unwrap(), "127.0.0.1");
-            // Rewrite URL to include the port
-            confirmation_link.set_port(Some(self.port)).unwrap();
-
-            confirmation_link
-        };
-
-        let html = get_link(body["HtmlBody"].as_str().unwrap());
-        let plain_text = get_link(body["TextBody"].as_str().unwrap());
-
-        ConfirmationLinks { html, plain_text }
-    }
-
-    /// Send a get request to the login endpoint.
-    pub async fn get_login_html(&self) -> String {
-        self.api_client
-            .get(&format!("{}/login", &self.address))
-            .send()
-            .await
-            .expect("Failed to execute request")
-            .text()
-            .await
-            .unwrap()
-    }
-
-    /// Send a get request to the admin dashboard endpoint.
-    pub async fn get_publish_newsletter(&self) -> reqwest::Response {
-        self.api_client
-            .get(&format!("{}/admin/newsletters", &self.address))
-            .send()
-            .await
-            .expect("Failed to execute request")
-    }
-
-    /// Return the html from the admin dashboard
-    pub async fn get_publish_newsletter_html(&self) -> String {
-        self.get_publish_newsletter().await.text().await.unwrap()
-    }
 
     /// Send a post request to the change admin password endpoint
     pub async fn post_change_password<Body>(&self, body: &Body) -> reqwest::Response
@@ -294,33 +228,5 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    /// Send a post request to the newsletters endpoint.
-    pub async fn post_publish_newsletter<Body>(&self, body: &Body) -> reqwest::Response
-    where
-        Body: serde::Serialize,
-    {
-        self.api_client
-            .post(&format!("{}/admin/newsletters", &self.address))
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .form(&body)
-            .send()
-            .await
-            .expect("Failed to execute request.")
-    }
-
-    /// Send a post request to the subscriptions endpoint.
-    pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
-        self.api_client
-            .post(&format!("{}/subscriptions", &self.address))
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .body(body)
-            .send()
-            .await
-            .expect("failed to execute request")
-    }
 }
 
-pub struct ConfirmationLinks {
-    pub html: reqwest::Url,
-    pub plain_text: reqwest::Url,
-}

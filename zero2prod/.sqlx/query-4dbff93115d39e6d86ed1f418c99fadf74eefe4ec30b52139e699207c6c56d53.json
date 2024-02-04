@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT email\n        FROM users JOIN user_private\n        ON users.user_id = user_private.user_id\n        WHERE users.user_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4dbff93115d39e6d86ed1f418c99fadf74eefe4ec30b52139e699207c6c56d53"
+}

@@ -2,20 +2,20 @@ use reqwest::Client;
 use secrecy::{ExposeSecret, Secret};
 use serde::Serialize;
 
-use crate::domain::SubscriberEmail;
+use crate::domain::Email;
 
 #[derive(Debug)]
 pub struct EmailClient {
     authorization_token: Secret<String>,
     base_url: String,
     http_client: Client,
-    sender: SubscriberEmail,
+    sender: Email,
 }
 
 impl EmailClient {
     pub fn new(
         base_url: String,
-        sender: SubscriberEmail,
+        sender: Email,
         authorization_token: Secret<String>,
         timeout: std::time::Duration,
     ) -> Self {
@@ -31,7 +31,7 @@ impl EmailClient {
     /// Send an email.
     pub async fn send_email(
         &self,
-        recipient: &SubscriberEmail,
+        recipient: &Email,
         subject: &str,
         html_content: &str,
         text_content: &str,
@@ -88,7 +88,7 @@ mod tests {
         Mock, MockServer, Request, ResponseTemplate,
     };
 
-    use crate::{domain::SubscriberEmail, email_client::EmailClient};
+    use crate::{domain::Email, email_client::EmailClient};
 
     struct SendEmailBodyMatcher;
     impl wiremock::Match for SendEmailBodyMatcher {
@@ -119,8 +119,8 @@ mod tests {
     }
 
     /// Generate a random subscriber email
-    fn email() -> SubscriberEmail {
-        SubscriberEmail::parse(SafeEmail().fake()).unwrap()
+    fn email() -> Email {
+        Email::parse(SafeEmail().fake()).unwrap()
     }
 
     /// Get a test instance of EmailClient

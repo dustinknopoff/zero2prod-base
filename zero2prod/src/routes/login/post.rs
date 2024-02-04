@@ -1,10 +1,7 @@
 use axum::{
-    extract::State,
-    response::{IntoResponse, Redirect},
-    Form,
+    extract::State, response::IntoResponse, Form, Json
 };
 
-use axum_flash::Flash;
 use axum_macros::debug_handler;
 use axum_session::SessionRedisPool;
 use http::StatusCode;
@@ -13,29 +10,26 @@ use serde::Deserialize;
 use sqlx::PgPool;
 
 use crate::{
-    authentication::{validate_credentials, AuthError, Credentials},
-    error_chain_fmt,
-    session_state::TypedSession,
+    authentication::{validate_credentials, AuthError, Credentials}, domain::Email, error_chain_fmt, session_state::TypedSession
 };
 
 #[debug_handler(state = crate::startup::AppState)]
 #[tracing::instrument(
     name = "Login posted"
-    skip(form, flash, session, pool),
-    fields(username=tracing::field::Empty, user_id=tracing::field::Empty)
+    skip(form, session, pool),
+    fields(email=tracing::field::Empty, user_id=tracing::field::Empty)
 )]
 pub async fn login(
     State(pool): State<PgPool>,
-    flash: Flash,
     session: TypedSession<SessionRedisPool>,
     Form(form): Form<FormData>,
 ) -> Result<impl IntoResponse, LoginError> {
     let credentials = Credentials {
-        username: form.username,
+        email: Email::parse(form.email)?,
         password: form.password,
     };
 
-    tracing::Span::current().record("username", &tracing::field::display(&credentials.username));
+    tracing::Span::current().record("email", &tracing::field::display(&credentials.email));
 
     let response = match validate_credentials(credentials, &pool).await {
         Ok(user_id) => {
@@ -43,7 +37,9 @@ pub async fn login(
             // In actix_web, it would be necessary to handle serialization failure here. Somehow axum gets around that.
             session.renew();
             session.insert_user_id(user_id);
-            Redirect::to("/admin/dashboard").into_response()
+            (StatusCode::OK,Json(serde_json::json!({
+               "message": "Successfully logged in" 
+            })))
         }
         Err(e) => {
             let e = match e {
@@ -52,11 +48,9 @@ pub async fn login(
             };
             tracing::error!("{:?}", &e);
 
-            let flash = flash.error(e.to_string());
-
-            let response = Redirect::to("/login").into_response();
-
-            (flash, response).into_response()
+           (StatusCode::BAD_REQUEST, Json(serde_json::json!({
+                "error": e.to_string()
+           })))
         }
     };
 
@@ -65,7 +59,7 @@ pub async fn login(
 
 #[derive(Deserialize)]
 pub struct FormData {
-    username: String,
+    email: String,
     password: Secret<String>,
 }
 

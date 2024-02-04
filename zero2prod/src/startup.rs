@@ -18,15 +18,13 @@ use crate::{
     authentication::reject_anonymous_users,
     configuration::{DatabaseSettings, Settings},
     routes::{
-        admin_dashboard, change_password, change_password_form, confirm, home, log_out, login,
-        login_form,
-        newsletters::{newsletters_publish_form, publish_newsletter},
+        change_password, change_password_form, log_out, login,
     },
     telemetry::RouterExt,
 };
 use crate::{
     email_client::EmailClient,
-    routes::{health_check, subscribe},
+    routes::health_check,
 };
 
 pub type AppServer = Serve<IntoMakeService<Router>, Router>;
@@ -109,9 +107,6 @@ pub fn run(
 
     // All admin section routes
     let router_for_admin_section = Router::new()
-        .route("/admin/dashboard", get(admin_dashboard))
-        .route("/admin/newsletters", get(newsletters_publish_form))
-        .route("/admin/newsletters", post(publish_newsletter))
         .route("/admin/password", get(change_password_form))
         .route("/admin/password", post(change_password))
         .route("/admin/logout", post(log_out))
@@ -119,11 +114,7 @@ pub fn run(
 
     // All routes that should be a care about session
     let router_with_session = Router::new()
-        .route("/", get(home))
-        .route("/login", get(login_form))
         .route("/login", post(login))
-        .route("/subscriptions", post(subscribe))
-        .route("/subscriptions/confirm", get(confirm))
         .merge(router_for_admin_section)
         .layer(SessionLayer::new(session_store));
 
