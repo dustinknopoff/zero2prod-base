@@ -112,7 +112,7 @@ async fn dequeue_task(pool: &PgPool) -> Result<Option<EmailTask>, anyhow::Error>
         LIMIT 1
         "#
     )
-    .fetch_optional(&mut transaction)
+    .fetch_optional(&mut *transaction)
     .await?;
 
     if let Some(r) = r {
@@ -156,7 +156,7 @@ async fn delete_task(mut task: EmailTask) -> Result<(), anyhow::Error> {
         task.issue_id,
         task.email,
     )
-    .execute(&mut task.transaction)
+    .execute(&mut *task.transaction)
     .await?;
     task.transaction.commit().await?;
     Ok(())
@@ -177,7 +177,7 @@ async fn queue_retry_task(mut task: EmailTask) -> Result<ExecutionOutcome, anyho
         task.issue_id,
         task.email,
     )
-    .execute(&mut task.transaction)
+    .execute(&mut *task.transaction)
     .await?;
     task.transaction.commit().await?;
     Ok(ExecutionOutcome::TaskQueuedForRetry)

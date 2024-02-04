@@ -1,16 +1,14 @@
-use std::{net::TcpListener, sync::Arc};
+use std::sync::Arc;
 
 use axum::{
-    extract::FromRef,
-    middleware,
-    routing::{get, post, IntoMakeService},
-    Router, Server,
+    extract::FromRef, middleware, routing::{get, post, IntoMakeService}, serve::Serve, Router
 };
 use axum_flash::Key;
 use axum_session::{SessionConfig, SessionLayer, SessionRedisPool, SessionStore};
-use hyper::server::conn::AddrIncoming;
 use secrecy::{ExposeSecret, Secret};
 use sqlx::{postgres::PgPoolOptions, PgPool};
+use tokio::net::TcpListener;
+use redis_pool::RedisPool;
 
 use crate::{
     authentication::reject_anonymous_users,
@@ -27,7 +25,7 @@ use crate::{
     routes::{health_check, subscribe},
 };
 
-pub type AppServer = Server<AddrIncoming, IntoMakeService<Router>>;
+pub type AppServer = Serve<IntoMakeService<Router>, Router>;
 
 pub struct Application {
     port: u16,
@@ -41,10 +39,11 @@ impl Application {
 
         // Build a redis connection
         let redis = redis::Client::open(configuration.redis.uri.expose_secret().as_str())?;
+        let redis_pool = RedisPool::from(redis);
         // Create a session store
         let session_config = SessionConfig::new();
         let session_store =
-            SessionStore::<SessionRedisPool>::new(Some(redis.into()), session_config);
+            SessionStore::<SessionRedisPool>::new(Some(redis_pool.into()), session_config).await?;
 
         // Build an email client
         let email_client = configuration.email_client.client();
@@ -53,7 +52,7 @@ impl Application {
             "{}:{}",
             configuration.application.host, configuration.application.port
         );
-        let listener = TcpListener::bind(address.to_string()).map_err(|e| {
+        let listener = TcpListener::bind(address.to_string()).await.map_err(|e| {
             tracing::error!("failed to bind port {}", address);
             e
         })?;
@@ -73,7 +72,7 @@ impl Application {
         self.port
     }
 
-    pub async fn run_until_stopped(self) -> hyper::Result<()> {
+    pub async fn run_until_stopped(self) -> Result<(), std::io::Error> {
         self.server.await
     }
 }
@@ -132,9 +131,7 @@ pub fn run(
         .with_state(app_state);
 
     // Start the axum server and set up to use supplied listener
-    axum::Server::from_tcp(listener)
-        .expect("failed to create server from listener")
-        .serve(app.into_make_service())
+    axum::serve(listener, app.into_make_service())
 }
 
 #[derive(Clone)]

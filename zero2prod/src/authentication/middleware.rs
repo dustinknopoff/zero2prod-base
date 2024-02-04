@@ -1,8 +1,7 @@
 use std::ops::Deref;
 
 use axum::{
-    middleware::Next,
-    response::{IntoResponse, Redirect, Response},
+    body::Body, middleware::Next, response::{IntoResponse, Redirect, Response}
 };
 use axum_session::SessionRedisPool;
 use http::Request;
@@ -10,10 +9,10 @@ use uuid::Uuid;
 
 use crate::session_state::TypedSession;
 
-pub async fn reject_anonymous_users<B>(
+pub async fn reject_anonymous_users(
     session: TypedSession<SessionRedisPool>,
-    mut request: Request<B>,
-    next: Next<B>,
+    mut request: Request<Body>,
+    next: Next,
 ) -> Result<Response, impl IntoResponse> {
     match session.get_user_id() {
         Some(uid) => {

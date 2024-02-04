@@ -1,4 +1,4 @@
-use axum::{body::HttpBody, Router};
+use axum::Router;
 use tokio::task::JoinHandle;
 use tower::ServiceBuilder;
 use tower_http::{
@@ -62,9 +62,8 @@ pub trait RouterExt {
     fn add_axum_tracing_layer(self) -> Self;
 }
 
-impl<S, B> RouterExt for Router<S, B>
+impl<S> RouterExt for Router<S>
 where
-    B: HttpBody + Send + 'static,
     S: Clone + Send + Sync + 'static,
 {
     fn add_axum_tracing_layer(self) -> Self {

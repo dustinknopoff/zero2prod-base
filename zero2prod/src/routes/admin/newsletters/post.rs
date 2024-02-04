@@ -91,7 +91,7 @@ pub async fn publish_newsletter(
 
 #[tracing::instrument(skip_all)]
 async fn insert_newsletter_issue(
-    transaction: &mut Transaction<'static, Postgres>,
+    transaction: &mut Transaction<'_, Postgres>,
     title: &str,
     text_content: &str,
     html_content: &str,
@@ -113,7 +113,7 @@ async fn insert_newsletter_issue(
         text_content,
         html_content
     )
-    .execute(transaction)
+    .execute(&mut **transaction)
     .await?;
 
     Ok(newsletter_issue_id)
@@ -136,7 +136,7 @@ async fn enqueue_delivery_tasks(
         "#,
         newsletter_issue_id
     )
-    .execute(transaction)
+    .execute(&mut **transaction)
     .await?;
     Ok(())
 }
