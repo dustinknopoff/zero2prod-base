@@ -1,6 +1,4 @@
-use axum::{
-    extract::State, response::IntoResponse, Form, Json
-};
+use axum::{extract::State, response::IntoResponse, Form, Json};
 
 use axum_macros::debug_handler;
 use axum_session::SessionRedisPool;
@@ -10,7 +8,10 @@ use serde::Deserialize;
 use sqlx::PgPool;
 
 use crate::{
-    authentication::{validate_credentials, AuthError, Credentials}, domain::Email, error_chain_fmt, session_state::TypedSession
+    authentication::{validate_credentials, AuthError, Credentials},
+    domain::Email,
+    error_chain_fmt,
+    session_state::TypedSession,
 };
 
 #[debug_handler(state = crate::startup::AppState)]
@@ -37,9 +38,12 @@ pub async fn login(
             // In actix_web, it would be necessary to handle serialization failure here. Somehow axum gets around that.
             session.renew();
             session.insert_user_id(user_id);
-            (StatusCode::OK,Json(serde_json::json!({
-               "message": "Successfully logged in" 
-            })))
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                   "message": "Successfully logged in"
+                })),
+            )
         }
         Err(e) => {
             let e = match e {
@@ -48,9 +52,12 @@ pub async fn login(
             };
             tracing::error!("{:?}", &e);
 
-           (StatusCode::BAD_REQUEST, Json(serde_json::json!({
-                "error": e.to_string()
-           })))
+            (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                     "error": e.to_string()
+                })),
+            )
         }
     };
 

@@ -17,15 +17,10 @@ use tokio::net::TcpListener;
 use crate::{
     authentication::reject_anonymous_users,
     configuration::{DatabaseSettings, Settings},
-    routes::{
-        change_password, change_password_form, log_out, login, signup
-    },
+    routes::{change_password, change_password_form, log_out, login, signup},
     telemetry::RouterExt,
 };
-use crate::{
-    email_client::EmailClient,
-    routes::health_check,
-};
+use crate::{email_client::EmailClient, routes::health_check};
 
 pub type AppServer = Serve<IntoMakeService<Router>, Router>;
 

@@ -1,8 +1,4 @@
-use axum::{
-    extract::State,
-    response::IntoResponse,
-    Extension, Form, Json,
-};
+use axum::{extract::State, response::IntoResponse, Extension, Form, Json};
 use axum_flash::Flash;
 use http::StatusCode;
 use secrecy::{ExposeSecret, Secret};

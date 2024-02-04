@@ -1,10 +1,7 @@
 use std::fmt::{Debug, Display};
 
 use tokio::task::JoinError;
-use zero2prod::{
-    configuration::get_configuration,
-    startup::Application, telemetry,
-};
+use zero2prod::{configuration::get_configuration, startup::Application, telemetry};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -17,7 +14,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = Application::build(configuration.clone()).await?;
     let app_task = tokio::spawn(app.run_until_stopped());
-
 
     tokio::select! {
         o = app_task => report_exit("API", o),

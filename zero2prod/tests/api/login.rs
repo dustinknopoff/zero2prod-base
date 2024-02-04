@@ -2,8 +2,6 @@ use http::StatusCode;
 
 use crate::helpers::spawn_app;
 
-
-
 #[tokio::test]
 async fn an_error_message_is_returned_on_error() {
     // Arrange
@@ -17,7 +15,7 @@ async fn an_error_message_is_returned_on_error() {
     let response = app.post_login(&login_body).await;
 
     // Assert 1
-     assert_eq!(
+    assert_eq!(
         Some(&serde_json::Value::String(String::from(
             "Authentication failed"
         ))),
@@ -27,7 +25,6 @@ async fn an_error_message_is_returned_on_error() {
             .unwrap()
             .get("error")
     )
-
 }
 
 #[tokio::test]
@@ -46,7 +43,7 @@ async fn message_on_success() {
     // Assert - Part 1
     assert_eq!(response.status().as_u16(), StatusCode::OK);
 
-     assert_eq!(
+    assert_eq!(
         Some(&serde_json::Value::String(String::from(
             "Successfully logged in"
         ))),
@@ -56,5 +53,4 @@ async fn message_on_success() {
             .unwrap()
             .get("message")
     )
-
 }

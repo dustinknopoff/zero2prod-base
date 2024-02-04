@@ -34,10 +34,11 @@ pub struct NewUser {
 
 #[tracing::instrument(name = "Create User", skip(new_user, pool))]
 pub async fn create_user(new_user: NewUser, pool: &PgPool) -> Result<Uuid, AuthError> {
-    let password_hash = spawn_blocking_with_tracing(move || compute_password_hash(new_user.password))
-        .await
-        .context("Failed to hash password")
-        .map_err(AuthError::UnexpectedError)??;
+    let password_hash =
+        spawn_blocking_with_tracing(move || compute_password_hash(new_user.password))
+            .await
+            .context("Failed to hash password")
+            .map_err(AuthError::UnexpectedError)??;
 
     let user_id = Uuid::new_v4();
 
@@ -55,7 +56,6 @@ pub async fn create_user(new_user: NewUser, pool: &PgPool) -> Result<Uuid, AuthE
     .await
     .context("Failed to create user in users")
     .map_err(AuthError::UnexpectedError)?;
-
 
     sqlx::query!(
         r#"

@@ -130,7 +130,9 @@ pub async fn change_password(
     Ok(())
 }
 
-pub(super) fn compute_password_hash(password: Secret<String>) -> Result<Secret<String>, anyhow::Error> {
+pub(super) fn compute_password_hash(
+    password: Secret<String>,
+) -> Result<Secret<String>, anyhow::Error> {
     let salt = SaltString::generate(&mut rand::thread_rng());
     let password_hash = Argon2::new(
         argon2::Algorithm::Argon2id,

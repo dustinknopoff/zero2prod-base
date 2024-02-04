@@ -1,5 +1,8 @@
 use argon2::{password_hash::SaltString, Algorithm, Argon2, Params, PasswordHasher, Version};
-use fake::{faker::{internet::en::{FreeEmail, SafeEmail}, phone_number::en::PhoneNumber}, Dummy, Fake, Faker};
+use fake::{
+    faker::{internet::en::SafeEmail, phone_number::en::PhoneNumber},
+    Fake,
+};
 use once_cell::sync::Lazy;
 use reqwest::Response;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
@@ -161,8 +164,6 @@ impl TestUser {
         .execute(pool)
         .await
         .expect("Failed to store test user");
-
-
     }
 }
 
@@ -177,7 +178,6 @@ pub struct TestApp {
 }
 
 impl TestApp {
-
     /// Send a get request to the change admin password endpoint
     pub async fn get_change_password(&self) -> reqwest::Response {
         self.api_client
@@ -186,12 +186,6 @@ impl TestApp {
             .await
             .expect("Failed to execute request.")
     }
-
-    /// Returns the HTML from a password change request
-    pub async fn get_change_password_html(&self) -> String {
-        self.get_change_password().await.text().await.unwrap()
-    }
-
 
     /// Send a post request to the change admin password endpoint
     pub async fn post_change_password<Body>(&self, body: &Body) -> reqwest::Response
@@ -220,6 +214,7 @@ impl TestApp {
     }
 
     /// Send a post request to the logout endpoint.
+    #[allow(dead_code)]
     pub async fn post_logout(&self) -> reqwest::Response {
         self.api_client
             .post(&format!("{}/admin/logout", self.address))
@@ -227,6 +222,4 @@ impl TestApp {
             .await
             .expect("Failed to execute request.")
     }
-
 }
-
