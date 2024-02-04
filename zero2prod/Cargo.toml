@@ -54,7 +54,7 @@ tracing-bunyan-formatter = "0.3.9"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 unicode-segmentation = "1.10.1"
 uuid = { version = "1.4.1", features = ["v4", "serde"] }
-validator = "0.16.1"
+validator = { version = "0.16.1", features = ["phone"] }
 
 [dev-dependencies]
 claims = "0.7.1"

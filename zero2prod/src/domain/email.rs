@@ -1,4 +1,5 @@
 use anyhow::bail;
+use secrecy::{CloneableSecret, DebugSecret, Zeroize};
 use validator::validate_email;
 
 #[derive(Clone, Debug)]
@@ -25,6 +26,18 @@ impl AsRef<str> for Email {
         &self.0
     }
 }
+
+impl Zeroize for Email {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+/// Permits cloning
+impl CloneableSecret for Email {}
+
+/// Provides a `Debug` impl (by default `[[REDACTED]]`)
+impl DebugSecret for Email {}
 
 #[cfg(test)]
 mod tests {

@@ -18,7 +18,7 @@ use crate::{
     authentication::reject_anonymous_users,
     configuration::{DatabaseSettings, Settings},
     routes::{
-        change_password, change_password_form, log_out, login,
+        change_password, change_password_form, log_out, login, signup
     },
     telemetry::RouterExt,
 };
@@ -114,6 +114,7 @@ pub fn run(
 
     // All routes that should be a care about session
     let router_with_session = Router::new()
+        .route("/signup", post(signup))
         .route("/login", post(login))
         .merge(router_for_admin_section)
         .layer(SessionLayer::new(session_store));
