@@ -6,7 +6,7 @@ use argon2::{
 use secrecy::{ExposeSecret, Secret};
 use sqlx::PgPool;
 
-use crate::{error_chain_fmt, telemetry::spawn_blocking_with_tracing};
+use crate::{domain::Email, error_chain_fmt, telemetry::spawn_blocking_with_tracing};
 
 #[derive(thiserror::Error)]
 pub enum AuthError {
@@ -24,7 +24,7 @@ impl std::fmt::Debug for AuthError {
 
 #[derive(Debug)]
 pub struct Credentials {
-    pub(crate) username: String,
+    pub(crate) email: Email,
     pub(crate) password: Secret<String>,
 }
 
@@ -44,7 +44,7 @@ pub async fn validate_credentials(
     );
 
     if let Some((stored_user_id, stored_password_hash)) =
-        get_stored_credentials(&credentials.username, pool)
+        get_stored_credentials(&credentials.email, pool)
             .await
             .map_err(AuthError::UnexpectedError)?
     {
@@ -59,7 +59,7 @@ pub async fn validate_credentials(
     .context("Failed to spawn blocking task.")
     .map_err(AuthError::UnexpectedError)??;
 
-    user_id.ok_or_else(|| AuthError::InvalidCredentials(anyhow::anyhow!("Unknown username.")))
+    user_id.ok_or_else(|| AuthError::InvalidCredentials(anyhow::anyhow!("Unknown email.")))
 }
 
 #[tracing::instrument(
@@ -83,18 +83,19 @@ fn verify_password_hash(
         .map_err(AuthError::InvalidCredentials)
 }
 
-#[tracing::instrument(name = "Get stored credentials", skip(username, pool))]
+#[tracing::instrument(name = "Get stored credentials", skip(email, pool))]
 async fn get_stored_credentials(
-    username: &str,
+    email: &Email,
     pool: &PgPool,
 ) -> Result<Option<(uuid::Uuid, Secret<String>)>, anyhow::Error> {
     let row: Option<_> = sqlx::query!(
         r#"
-        SELECT user_id, password_hash
-        FROM users
-        WHERE username = $1
+        SELECT users.user_id, password_hash
+        FROM users JOIN user_private
+        ON users.user_id = user_private.user_id
+        WHERE email = $1
         "#,
-        username,
+        email.as_ref(),
     )
     .fetch_optional(pool)
     .await
@@ -129,7 +130,9 @@ pub async fn change_password(
     Ok(())
 }
 
-fn compute_password_hash(password: Secret<String>) -> Result<Secret<String>, anyhow::Error> {
+pub(super) fn compute_password_hash(
+    password: Secret<String>,
+) -> Result<Secret<String>, anyhow::Error> {
     let salt = SaltString::generate(&mut rand::thread_rng());
     let password_hash = Argon2::new(
         argon2::Algorithm::Argon2id,

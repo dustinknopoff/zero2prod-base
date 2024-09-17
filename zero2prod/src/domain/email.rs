@@ -1,33 +1,47 @@
+use anyhow::bail;
+use secrecy::{CloneableSecret, DebugSecret, Zeroize};
 use validator::validate_email;
 
 #[derive(Clone, Debug)]
-pub struct SubscriberEmail(String);
+pub struct Email(String);
 
-impl SubscriberEmail {
-    pub fn parse(value: String) -> Result<Self, String> {
+impl Email {
+    pub fn parse(value: String) -> anyhow::Result<Self> {
         if validate_email(&value) {
             Ok(Self(value))
         } else {
-            Err(format!("{} is not a valid subscriber email", value))
+            bail!("{} is not a valid subscriber email", value)
         }
     }
 }
 
-impl std::fmt::Display for SubscriberEmail {
+impl std::fmt::Display for Email {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl AsRef<str> for SubscriberEmail {
+impl AsRef<str> for Email {
     fn as_ref(&self) -> &str {
         &self.0
     }
 }
 
+impl Zeroize for Email {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+/// Permits cloning
+impl CloneableSecret for Email {}
+
+/// Provides a `Debug` impl (by default `[[REDACTED]]`)
+impl DebugSecret for Email {}
+
 #[cfg(test)]
 mod tests {
-    use super::SubscriberEmail;
+    use super::Email;
     use claims::assert_err;
     use fake::{faker::internet::en::SafeEmail, Fake};
 
@@ -44,23 +58,23 @@ mod tests {
     #[test]
     fn empty_string_is_rejected() {
         let email = "".to_string();
-        assert_err!(SubscriberEmail::parse(email));
+        assert_err!(Email::parse(email));
     }
 
     #[test]
     fn email_missin_at_symbol_is_rejected() {
         let email = "ursuladomain.com".to_string();
-        assert_err!(SubscriberEmail::parse(email));
+        assert_err!(Email::parse(email));
     }
 
     #[test]
     fn email_missing_subject_is_rejected() {
         let email = "@domain.com".to_string();
-        assert_err!(SubscriberEmail::parse(email));
+        assert_err!(Email::parse(email));
     }
 
     #[quickcheck_macros::quickcheck]
     fn valid_emails_are_parsed_successfully(valid_email: ValidEmailFixture) -> bool {
-        SubscriberEmail::parse(valid_email.0).is_ok()
+        Email::parse(valid_email.0).is_ok()
     }
 }

@@ -3,12 +3,12 @@ use axum::{extract::State, response::IntoResponse, Form, Json};
 use axum_macros::debug_handler;
 use axum_session::SessionRedisPool;
 use http::StatusCode;
-use secrecy::Secret;
+use secrecy::{ExposeSecret, Secret};
 use serde::Deserialize;
 use sqlx::PgPool;
 
 use crate::{
-    authentication::{validate_credentials, AuthError, Credentials},
+    authentication::{create_user, AuthError, NewUser},
     domain::Email,
     error_chain_fmt,
     session_state::TypedSession,
@@ -16,23 +16,23 @@ use crate::{
 
 #[debug_handler(state = crate::startup::AppState)]
 #[tracing::instrument(
-    name = "Login posted"
+    name = "Signup posted"
     skip(form, session, pool),
-    fields(email=tracing::field::Empty, user_id=tracing::field::Empty)
 )]
-pub async fn login(
+pub async fn signup(
     State(pool): State<PgPool>,
     session: TypedSession<SessionRedisPool>,
     Form(form): Form<FormData>,
 ) -> Result<impl IntoResponse, LoginError> {
-    let credentials = Credentials {
-        email: Email::parse(form.email)?,
+    let credentials = NewUser {
+        user_name: form.user_name,
+        preferred_name: form.preferred_name,
+        email: Secret::from(Email::parse(form.email.expose_secret().clone())?),
+        phone_number: form.phone_number,
         password: form.password,
     };
 
-    tracing::Span::current().record("email", &tracing::field::display(&credentials.email));
-
-    let response = match validate_credentials(credentials, &pool).await {
+    let response = match create_user(credentials, &pool).await {
         Ok(user_id) => {
             tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
             // In actix_web, it would be necessary to handle serialization failure here. Somehow axum gets around that.
@@ -66,8 +66,11 @@ pub async fn login(
 
 #[derive(Deserialize)]
 pub struct FormData {
-    email: String,
+    email: Secret<String>,
     password: Secret<String>,
+    user_name: String,
+    preferred_name: String,
+    phone_number: Secret<String>,
 }
 
 #[derive(thiserror::Error)]
